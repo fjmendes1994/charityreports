@@ -1,7 +1,7 @@
 package app
 
 import (
-	"charityreports/projects/gitlab"
+	"charityreports/projects/github"
 	"charityreports/reports/golang"
 	"flag"
 	"fmt"
@@ -20,27 +20,43 @@ func Start() {
 	flag.StringVar(&password, "p", "", "Gitlab password")
 	flag.Parse()
 
-	client, err := gitlab.New().
-		AddEndpoint(domain).
-		AddUsername(username).
-		AddPassword(password).
-		Build()
+	//glclient, err := gitlab.New().
+	//	AddEndpoint(domain).
+	//	AddUsername(username).
+	//	AddPassword(password).
+	//	Build()
+	//
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
+	//
+	//commits, err := glclient.ListCommits("fernandomendes1/sd-kmeans-mpi")
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
+	//fmt.Println(commits)
 
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	commits, err := client.ListCommits("fernandomendes1/sd-kmeans-mpi")
-	fmt.Println(commits)
+	ghclient := github.New()
+	commits, err := ghclient.ListCommits("github.com/xanzy/go-gitlab")
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	for _, commit := range commits {
-		err = golang.GetCoverage("github.com/xanzy/go-gitlab", commit.ID)
+		fmt.Println(commit.GetSHA())
+	}
+	fmt.Println(len(commits), " commits.")
+
+	coverages := make([]string, len(commits))
+
+	for i, commit := range commits {
+		cov, err := golang.GetCoverage("github.com/xanzy/go-gitlab", commit.GetSHA())
 		if err != nil {
 			fmt.Println(err)
 		}
+		fmt.Println(cov)
+		coverages[i] = cov
+
 	}
 
 }
