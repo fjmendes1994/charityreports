@@ -1,7 +1,9 @@
 package app
 
 import (
+	"charityreports/projects/gitlab"
 	"charityreports/reports/golang"
+	"flag"
 	"fmt"
 )
 
@@ -11,29 +13,34 @@ type App struct {
 }
 
 func Start() {
-	//var domain, username, password string
-	//
-	//flag.StringVar(&domain, "d", "", "Gitlab doman")
-	//flag.StringVar(&username, "u", "", "Gitlab username")
-	//flag.StringVar(&password, "p", "", "Gitlab password")
-	//flag.Parse()
+	var domain, username, password string
 
-	//client, err := gitlab.New().
-	//	AddEndpoint(domain).
-	//	AddUsername(username).
-	//	AddPassword(password).
-	//	Build()
-	//
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
+	flag.StringVar(&domain, "d", "", "Gitlab doman")
+	flag.StringVar(&username, "u", "", "Gitlab username")
+	flag.StringVar(&password, "p", "", "Gitlab password")
+	flag.Parse()
 
-	//fmt.Println(client.ListCommits("fernandomendes1/sd-kmeans-mpi"))
+	client, err := gitlab.New().
+		AddEndpoint(domain).
+		AddUsername(username).
+		AddPassword(password).
+		Build()
 
-	// TODO
-	err := golang.GetCoverage("github.com/xanzy/go-gitlab", "14423f46413f55f9447c41a9ec20c032d1ff53f4")
 	if err != nil {
 		fmt.Println(err)
+	}
+
+	commits, err := client.ListCommits("fernandomendes1/sd-kmeans-mpi")
+	fmt.Println(commits)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for _, commit := range commits {
+		err = golang.GetCoverage("github.com/xanzy/go-gitlab", commit.ID)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 
 }
