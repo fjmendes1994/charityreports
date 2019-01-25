@@ -1,11 +1,18 @@
 package app
 
 import (
+	"encoding/csv"
 	"flag"
 	"fmt"
+	"log"
+	"os"
+	"strings"
+
+	"github.com/fjmendes1994/charityreports/reports/golang"
+
+	"github.com/kr/pretty"
 
 	"github.com/fjmendes1994/charityreports/projects/github"
-	"github.com/fjmendes1994/charityreports/reports/golang"
 )
 
 type App struct {
@@ -38,7 +45,7 @@ func Start() {
 	//fmt.Println(commits)
 
 	ghclient := github.New()
-	commits, err := ghclient.ListCommits("github.com/xanzy/go-gitlab")
+	commits, err := ghclient.ListCommits("github.com/kr/pretty")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -48,16 +55,58 @@ func Start() {
 	}
 	fmt.Println(len(commits), " commits.")
 
-	coverages := make([]string, len(commits))
+	coverages := make([][]string, len(commits))
 
 	for i, commit := range commits {
-		cov, err := golang.GetCoverage("github.com/xanzy/go-gitlab", commit.GetSHA())
+		cov, err := golang.GetCoverage("github.com/kr/pretty", commit.GetSHA())
 		if err != nil {
 			fmt.Println(err)
 		}
-		fmt.Println(cov)
-		coverages[i] = cov
+
+		c := strings.Split(cov, "%")
+
+		fmt.Println(c[0])
+
+		coverages[i] = []string{commit.GetSHA(), c[0]}
 
 	}
+	pretty.Println(coverages)
+	Write(reverse(coverages))
 
+}
+
+func reverse(array [][]string) [][]string {
+	for i, j := 0, len(array)-1; i < j; i, j = i+1, j-1 {
+		array[i], array[j] = array[j], array[i]
+	}
+	return array
+}
+
+func Write(coverages [][]string) {
+	records := [][]string{
+		{"commit_id", "coverage"},
+	}
+
+	records = append(records, coverages...)
+
+	file, err := os.Create("./reports.csv")
+	if err != nil {
+		log.Fatalln("error writing record to csv:", err)
+	}
+	defer file.Close()
+
+	w := csv.NewWriter(file)
+
+	for _, record := range records {
+		if err := w.Write(record); err != nil {
+			log.Fatalln("error writing record to csv:", err)
+		}
+	}
+
+	// Write any buffered data to the underlying writer (standard output).
+	w.Flush()
+
+	if err := w.Error(); err != nil {
+		log.Fatal(err)
+	}
 }
