@@ -1,10 +1,11 @@
 package app
 
 import (
-	"charityreports/projects/github"
-	"charityreports/reports/golang"
 	"flag"
 	"fmt"
+
+	"github.com/fjmendes1994/charityreports/projects/github"
+	"github.com/fjmendes1994/charityreports/reports/golang"
 )
 
 type App struct {
