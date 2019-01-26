@@ -13,3 +13,6 @@
 
 # Personal
 .idea/
+vendor/
+Gopkg.lock
+Gopkg.toml
