@@ -10,9 +10,10 @@ import (
 
 	"github.com/fjmendes1994/charityreports/reports/golang"
 
-	"github.com/kr/pretty"
-
-	"github.com/fjmendes1994/charityreports/projects/github"
+	git "gopkg.in/src-d/go-git.v4"
+	"gopkg.in/src-d/go-git.v4/plumbing/object"
+	"gopkg.in/src-d/go-git.v4/plumbing/transport/http"
+	"gopkg.in/src-d/go-git.v4/storage/memory"
 )
 
 type App struct {
@@ -21,44 +22,35 @@ type App struct {
 }
 
 func Start() {
-	var domain, username, password string
+	var repository, username, password string
 
-	flag.StringVar(&domain, "d", "", "Gitlab doman")
+	flag.StringVar(&repository, "r", "", "Repository")
 	flag.StringVar(&username, "u", "", "Gitlab username")
 	flag.StringVar(&password, "p", "", "Gitlab password")
 	flag.Parse()
 
-	//glclient, err := gitlab.New().
-	//	AddEndpoint(domain).
-	//	AddUsername(username).
-	//	AddPassword(password).
-	//	Build()
-	//
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
-	//
-	//commits, err := glclient.ListCommits("fernandomendes1/sd-kmeans-mpi")
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
-	//fmt.Println(commits)
+	// Clones the given repository, creating the remote, the local branches
+	// and fetching the objects, everything in memory:
+	r, _ := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
+		URL: "https://" + repository,
+		Auth: &http.BasicAuth{
+			Username: username,
+			Password: password,
+		},
+	})
 
-	ghclient := github.New()
-	commits, err := ghclient.ListCommits("github.com/kr/pretty")
-	if err != nil {
-		fmt.Println(err)
-	}
+	// ... retrieves the branch pointed by HEAD
+	ref, _ := r.Head()
 
-	for _, commit := range commits {
-		fmt.Println(commit.GetSHA())
-	}
-	fmt.Println(len(commits), " commits.")
+	// ... retrieves the commit history
+	cIter, _ := r.Log(&git.LogOptions{From: ref.Hash()})
 
-	coverages := make([][]string, len(commits))
+	// ... just iterates over the commits, printing it
+	var i int
+	coverages := make([][]string, 0)
 
-	for i, commit := range commits {
-		cov, err := golang.GetCoverage("github.com/kr/pretty", commit.GetSHA())
+	_ = cIter.ForEach(func(commit *object.Commit) error {
+		cov, err := golang.GetCoverage(repository, commit.Hash.String())
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -67,11 +59,13 @@ func Start() {
 
 		fmt.Println(c[0])
 
-		coverages[i] = []string{commit.GetSHA(), c[0]}
+		coverages = append(coverages, []string{commit.Hash.String(), c[0]})
+		i++
 
-	}
-	pretty.Println(coverages)
-	Write(reverse(coverages))
+		return nil
+	})
+	fmt.Println(coverages)
+	Write(coverages)
 
 }
 
