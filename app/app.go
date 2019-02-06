@@ -1,13 +1,16 @@
 package app
 
 import (
+	"bufio"
 	"encoding/csv"
 	"flag"
 	"fmt"
+	"golang.org/x/crypto/ssh/terminal"
 	"log"
 	"net/url"
 	"os"
 	"strings"
+	"syscall"
 
 	"github.com/fjmendes1994/charityreports/reports/golang"
 
@@ -23,11 +26,9 @@ type App struct {
 }
 
 func Start() {
-	var repositoryUrl, repositoryPath, username, password, language string
+	var repositoryUrl, repositoryPath, language string
 
 	flag.StringVar(&repositoryUrl, "r", "", "Repository")
-	flag.StringVar(&username, "u", "", "User")
-	flag.StringVar(&password, "p", "", "Pass")
 	flag.StringVar(&language, "l", "", "Language")
 
 	flag.Parse()
@@ -43,6 +44,11 @@ func Start() {
 	var repository *git.Repository
 	switch url.Scheme {
 	case "https":
+		username, password , err := getCredentials()
+		if err != nil {
+			fmt.Println(err)
+			break
+		}
 		repository, err = getRepository(repositoryUrl, username, password)
 	default:
 		fmt.Println("Not suported: " + url.Scheme)
@@ -134,6 +140,26 @@ func getRepository(repositoryUrl string, username string, password string) (*git
 		return nil, err
 	}
 	return r, nil
+}
+
+func getCredentials() (string, string, error) {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Print("Enter Username: ")
+	username, err := reader.ReadString('\n')
+	if err != nil {
+		return "", "", err
+	}
+
+	fmt.Print("Enter Password: ")
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	fmt.Println()
+	if err != nil {
+		return "", "", err
+	}
+	password := string(bytePassword)
+
+	return strings.TrimSpace(username), strings.TrimSpace(password), nil
 }
 
 func Write(coverages [][]string) {
