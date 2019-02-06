@@ -8,6 +8,11 @@ import (
 	"github.com/pkg/errors"
 )
 
+const(
+	CharityReportsPath = "github.com/fjmendes1994/charityreports"
+)
+
+
 func GetCoverage(projectUrl string, commitId string) (string, error) {
 	fmt.Print("GetCoverage (" + commitId + "): ")
 
@@ -20,7 +25,7 @@ func runCoverageScript(projectPath string, commitId string) (string, error) {
 
 	goPath := os.Getenv("GOPATH")
 
-	cmd.Dir = goPath + "/src/" + projectPath + "/reports/golang/"
+	cmd.Dir = goPath + "/src/" + CharityReportsPath + "/reports/golang/"
 
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {
