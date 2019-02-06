@@ -2,13 +2,14 @@ package golang
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
+	"os"
 	"os/exec"
+
+	"github.com/pkg/errors"
 )
 
-// go test -coverprofile=cov.out -race -v $(go list ./... | grep -v /vendor/) && go tool cover -func=cov.out | grep total: | awk ' {print $3} ';
 func GetCoverage(projectUrl string, commitId string) (string, error) {
-	fmt.Println("GetCoverage (" + commitId + "):")
+	fmt.Print("GetCoverage (" + commitId + "): ")
 
 	return runCoverageScript(projectUrl, commitId)
 
@@ -16,7 +17,10 @@ func GetCoverage(projectUrl string, commitId string) (string, error) {
 
 func runCoverageScript(projectPath string, commitId string) (string, error) {
 	cmd := exec.Command("sh", "coverage.sh", projectPath, commitId, "-c", "1>&2")
-	cmd.Dir = "/home/fjmendes1994/go/src/charityreports/reports/golang/"
+
+	goPath := os.Getenv("GOPATH")
+
+	cmd.Dir = goPath + "/src/" + projectPath + "/reports/golang/"
 
 	stdoutStderr, err := cmd.CombinedOutput()
 	if err != nil {

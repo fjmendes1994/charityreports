@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
-go get $1
+
+REPOSITORY=$1
+COMMIT_ID=$2
+
+go get ${REPOSITORY}
 cd $HOME/go/src/
-cd $1
-git checkout $2 >/dev/null 2>/dev/null;
-dep init >/dev/null 2>/dev/null;
-dep ensure >/dev/null 2>/dev/null;
-go test -coverprofile=cov.out -race -v $(go list ./... | grep -v /vendor/) >/dev/null 2>/dev/null;
+cd ${REPOSITORY}
+git checkout ${COMMIT_ID};
+dep init;
+dep ensure;
+go test -coverprofile=cov.out -race -v $(go list ./... | grep -v /vendor/);
 go tool cover -func=cov.out | grep total: | awk ' {print $3} ';
-rm -rf $HOME/go/src/$1
+rm -rf $HOME/go/src/${REPOSITORY}

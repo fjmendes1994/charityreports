@@ -5,12 +5,13 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"strings"
 
 	"github.com/fjmendes1994/charityreports/reports/golang"
 
-	git "gopkg.in/src-d/go-git.v4"
+	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing/object"
 	"gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 	"gopkg.in/src-d/go-git.v4/storage/memory"
@@ -22,58 +23,117 @@ type App struct {
 }
 
 func Start() {
-	var repository, username, password string
+	var repositoryUrl, repositoryPath, username, password, language string
 
-	flag.StringVar(&repository, "r", "", "Repository")
-	flag.StringVar(&username, "u", "", "Gitlab username")
-	flag.StringVar(&password, "p", "", "Gitlab password")
+	flag.StringVar(&repositoryUrl, "r", "", "Repository")
+	flag.StringVar(&username, "u", "", "User")
+	flag.StringVar(&password, "p", "", "Pass")
+	flag.StringVar(&language, "l", "", "Language")
+
 	flag.Parse()
 
-	// Clones the given repository, creating the remote, the local branches
-	// and fetching the objects, everything in memory:
-	r, _ := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
-		URL: "https://" + repository,
-		Auth: &http.BasicAuth{
-			Username: username,
-			Password: password,
-		},
-	})
+	url, err := url.Parse(repositoryUrl)
+	if err != nil {
+		fmt.Println(err)
+	}
 
-	// ... retrieves the branch pointed by HEAD
-	ref, _ := r.Head()
+	repositoryPath = url.Host + url.Path
+	fmt.Println("Repository path: " + url.Host + url.Path)
 
-	// ... retrieves the commit history
-	cIter, _ := r.Log(&git.LogOptions{From: ref.Hash()})
+	var repository *git.Repository
+	switch url.Scheme {
+	case "https":
+		repository, err = getRepository(repositoryUrl, username, password)
+	default:
+		fmt.Println("Not suported: " + url.Scheme)
+	}
+	if err != nil {
+		fmt.Println(err)
+	}
 
-	// ... just iterates over the commits, printing it
-	var i int
+	numberOfCommits, err := countCommits(repository)
+	if err != nil {
+		fmt.Println(err)
+	}
+	fmt.Printf("Number of commits: %d \n", numberOfCommits)
+
 	coverages := make([][]string, 0)
-
-	_ = cIter.ForEach(func(commit *object.Commit) error {
-		cov, err := golang.GetCoverage(repository, commit.Hash.String())
+	switch language {
+	case "golang":
+		coverages, err = getGolangCoverages(repository, repositoryPath)
 		if err != nil {
 			fmt.Println(err)
 		}
+	default:
+		fmt.Println("Not suported: " + language)
 
-		c := strings.Split(cov, "%")
+	}
 
-		fmt.Println(c[0])
-
-		coverages = append(coverages, []string{commit.Hash.String(), c[0]})
-		i++
-
-		return nil
-	})
 	fmt.Println(coverages)
 	Write(coverages)
 
 }
 
-func reverse(array [][]string) [][]string {
-	for i, j := 0, len(array)-1; i < j; i, j = i+1, j-1 {
-		array[i], array[j] = array[j], array[i]
+func getGolangCoverages(repository *git.Repository, repositoryPath string) ([][]string, error) {
+	head, err := repository.Head()
+	if err != nil {
+		fmt.Println(err)
 	}
-	return array
+
+	coverages := make([][]string, 0)
+
+	commitIter, err := repository.Log(&git.LogOptions{From: head.Hash()})
+	if err != nil {
+		fmt.Println(err)
+	}
+	err = commitIter.ForEach(func(commit *object.Commit) error {
+		cov, err := golang.GetCoverage(repositoryPath, commit.Hash.String())
+		if err != nil {
+			fmt.Println(err)
+		}
+
+		fmt.Println(strings.TrimSpace(cov))
+		covOutput := strings.Split(cov, "%")
+
+		coverages = append(coverages, []string{commit.Hash.String(), covOutput[0]})
+
+		return nil
+	})
+	return coverages, err
+}
+
+func countCommits(repository *git.Repository) (int, error) {
+	head, err := repository.Head()
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	commitIter, err := repository.Log(&git.LogOptions{From: head.Hash()})
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	var numberOfCommits int
+
+	err = commitIter.ForEach(func(commit *object.Commit) error {
+		numberOfCommits++
+		return nil
+	})
+	return numberOfCommits, err
+}
+
+func getRepository(repositoryUrl string, username string, password string) (*git.Repository, error) {
+	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
+		URL: repositoryUrl,
+		Auth: &http.BasicAuth{
+			Username: username,
+			Password: password,
+		},
+	})
+	if err != nil {
+		return nil, err
+	}
+	return r, nil
 }
 
 func Write(coverages [][]string) {
@@ -97,7 +157,6 @@ func Write(coverages [][]string) {
 		}
 	}
 
-	// Write any buffered data to the underlying writer (standard output).
 	w.Flush()
 
 	if err := w.Error(); err != nil {
