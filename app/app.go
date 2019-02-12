@@ -5,12 +5,13 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
-	"golang.org/x/crypto/ssh/terminal"
 	"log"
 	"net/url"
 	"os"
 	"strings"
 	"syscall"
+
+	"golang.org/x/crypto/ssh/terminal"
 
 	"github.com/fjmendes1994/charityreports/reports/golang"
 
@@ -27,9 +28,11 @@ type App struct {
 
 func Start() {
 	var repositoryUrl, repositoryPath, language string
+	var auth bool
 
-	flag.StringVar(&repositoryUrl, "r", "", "Repository")
-	flag.StringVar(&language, "l", "", "Language")
+	flag.StringVar(&repositoryUrl, "r", "https://github.com/olivere/elastic", "Repository")
+	flag.StringVar(&language, "l", "golang", "Language")
+	flag.BoolVar(&auth, "auth", false, "Auth")
 
 	flag.Parse()
 
@@ -44,11 +47,15 @@ func Start() {
 	var repository *git.Repository
 	switch url.Scheme {
 	case "https":
-		username, password , err := getCredentials()
-		if err != nil {
-			fmt.Println(err)
-			break
+		var username, password string
+		if auth {
+			username, password, err = getCredentials()
+			if err != nil {
+				fmt.Println(err)
+				break
+			}
 		}
+
 		repository, err = getRepository(repositoryUrl, username, password)
 	default:
 		fmt.Println("Not suported: " + url.Scheme)
@@ -129,6 +136,18 @@ func countCommits(repository *git.Repository) (int, error) {
 }
 
 func getRepository(repositoryUrl string, username string, password string) (*git.Repository, error) {
+
+	if username == "" && password == "" {
+		r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
+			URL: repositoryUrl,
+		})
+		if err != nil {
+			return nil, err
+		}
+		return r, nil
+
+	}
+
 	r, err := git.Clone(memory.NewStorage(), nil, &git.CloneOptions{
 		URL: repositoryUrl,
 		Auth: &http.BasicAuth{
