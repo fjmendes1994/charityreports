@@ -1,7 +1,7 @@
 package main
 
-import "github.com/fjmendes1994/charityreports/app"
+import "github.com/fjmendes1994/charityreports/cmd"
 
 func main() {
-	app.Start()
+	cmd.StartCli()
 }
